@@ -19,8 +19,12 @@ column 1 "idx" contains the index location of clot as [x, y, z] within the 512X5
 def get_score(path_to_annotations, subject, idx, threshold):
 
     annotation = sitk.ReadImage(os.path.join(path_to_annotations, subject + '_seg.nii.gz'))
+
+    # connected component labelling
+    annotation_cc = sitk.ConnectedComponent(annotation)
+
     lsif = sitk.LabelShapeStatisticsImageFilter()
-    lsif.Execute(annotation)
+    lsif.Execute(annotation_cc)
 
     # if there is no clot
     if len(lsif.GetLabels()) == 0:
@@ -36,11 +40,11 @@ def get_score(path_to_annotations, subject, idx, threshold):
 
             circle = sitk.GaussianSource(
                 sitk.sitkInt16,
-                size=annotation.GetSize(),
+                size=annotation_cc.GetSize(),
                 sigma=[30, 30, 15],
-                mean=annotation.TransformPhysicalPointToIndex(centroid))
+                mean=annotation_cc.TransformPhysicalPointToIndex(centroid))
 
-            circle.CopyInformation(annotation)
+            circle.CopyInformation(annotation_cc)
             circle = circle > 80
 
             prediction_circle = sitk.GaussianSource(
@@ -49,7 +53,7 @@ def get_score(path_to_annotations, subject, idx, threshold):
                 sigma=[30, 30, 15],
                 mean=idx)
 
-            prediction_circle.CopyInformation(annotation)
+            prediction_circle.CopyInformation(annotation_cc)
             prediction_circle = prediction_circle > 80
 
             circle_array = sitk.GetArrayFromImage(circle)
