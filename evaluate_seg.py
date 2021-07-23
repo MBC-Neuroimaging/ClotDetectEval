@@ -10,9 +10,20 @@ import matplotlib.pyplot as plt
 
 '''
 Script to evaluated clot detection on benchmark dataset
+
+Input argument:
+
+path_to_csv:
 User provides a csv with two columns:
 column 0 "id" contains the identifying tags for the subject
 column 1 "idx" contains the index location of clot as [x, y, z] within the 512X512X320 image
+
+path_to_ann:
+full path to where the ground truth annotations are held
+
+save_fig:
+location to save the ROC figure
+
 '''
 
 
@@ -23,6 +34,7 @@ def get_score(path_to_annotations, subject, idx, threshold):
     # connected component labelling
     annotation_cc = sitk.ConnectedComponent(annotation)
 
+    # label statistics
     lsif = sitk.LabelShapeStatisticsImageFilter()
     lsif.Execute(annotation_cc)
 
@@ -31,13 +43,17 @@ def get_score(path_to_annotations, subject, idx, threshold):
         # if you have provided an index
         if not idx:
             return 'tn'
+        # if you have provided an index
         if idx:
             return 'fp'
 
+    # if there is a clot
     else:
+        # if you have provided an index
         if idx:
+            # get the location of the annotation centroid
             centroid = lsif.GetCentroid(1)
-
+            # construct a sphere around it
             circle = sitk.GaussianSource(
                 sitk.sitkInt16,
                 size=annotation_cc.GetSize(),
@@ -46,7 +62,7 @@ def get_score(path_to_annotations, subject, idx, threshold):
 
             circle.CopyInformation(annotation_cc)
             circle = circle > 80
-
+            # construct a sphere around the prediction index
             prediction_circle = sitk.GaussianSource(
                 sitk.sitkInt16,
                 size=annotation.GetSize(),
@@ -56,10 +72,11 @@ def get_score(path_to_annotations, subject, idx, threshold):
             prediction_circle.CopyInformation(annotation_cc)
             prediction_circle = prediction_circle > 80
 
+            # normalize labels
+            # TODO: deal with two clots
             circle_array = sitk.GetArrayFromImage(circle)
             circle_array = circle_array/np.max(circle_array)
 
-            # set rois to 1
             pred_array = sitk.GetArrayFromImage(prediction_circle)
             pred_array = pred_array/np.max(pred_array)
 
@@ -78,12 +95,15 @@ def get_score(path_to_annotations, subject, idx, threshold):
                 np.where(iou_array == -4)[0]) + len(
                 np.where(iou_array == 9)[0]) + intersection
 
+            # calculate Jaccard
             IoU = intersection/union
 
+            # assign score
             if IoU > threshold:
                 return 'tp'
             else:
                 return 'fp'
+        # if you have not provided an index
         if not idx:
             return 'fn'
 
@@ -95,11 +115,11 @@ save_fig = sys.argv[3]
 
 df = pd.read_csv(path_to_csv)
 
+# get list of subjects
 subjects = df['id'].to_list()
-
 df.set_index('id', inplace=True, drop=True)
 
-
+# make an array of thresholds for ROC curve
 thresholds = np.arange(10, 100, 5)
 score_df = pd.DataFrame(
     index=subjects,
@@ -128,14 +148,9 @@ fpr_row = pd.DataFrame(
     columns=[str(thresh) + '%' for thresh in thresholds]
 )
 
-subjects = [str(num) for num in np.arange(100)]
-score_df = pd.DataFrame(
-    index=subjects,
-    columns=[str(thresh) + '%' for thresh in thresholds])
-
 for col in score_df:
     series = score_df[col]
-    # get tpr
+    # get TPR and TPR for each column
     counts = series.value_counts()
     tpr = counts['tp'] / (counts['tp'] + counts['fp'])
     fpr = counts['fp'] / (counts['fp'] + counts['tn'])
@@ -143,10 +158,12 @@ for col in score_df:
     fpr_row.loc['fpr', col] = round(fpr, 3)
 
 
+# append FPR and TPR for the bottom of the score card
 score_df = score_df.append(tpr_row)
 score_df = score_df.append(fpr_row)
 
 
+# make the ROC curve
 def create_triangle(tpr_0, tpr_1, fpr_0, fpr_1):
     plt.plot([tpr_0, tpr_1], [fpr_0, fpr_1], '-', lw=2, color='#4285F4')
     plt.plot([tpr_0, tpr_1], [fpr_1, fpr_1], '-', lw=2, color='#4285F4')
@@ -182,6 +199,7 @@ plt.ylabel('True Positive Rate', fontsize=16)
 
 plt.savefig(os.path.join(save_fig, "roc_curve.png"))
 
+# construct the area under the ROC curve
 rectangle_auc = 0
 for k in range(len(thresholds)-1):
     rectangle_auc += (fpr_row.iloc[0, k + 1] - fpr_row.iloc[0, k]) * tpr_row.iloc[0, k]
