@@ -2,7 +2,7 @@
  ## What is CODEC-IV?
  The CODEC-IV dataset consists of 127 annotated vessel-enhanced brain CT images and was created with the purpose of driving an initiative towards excellence in the automated detection of blood clots associated with Acute Ischemic Stroke. Each image was annotated by stroke experts. CODEC-IV was created as part of a special issue on Benchmarks in Artifical Intelligence for Neuroimage journal. 
  ## How to I access CODEC-IV?
-Details on the dataset can be found in the [published article](). Request for data access can be made via [online form](https://forms.microsoft.com/r/Xt88X58K8p). We will be in contact with you thereafter.
+Details on the dataset can be found in the [published article](). Our [online form](https://forms.microsoft.com/r/Xt88X58K8p) can be used to request data access and agree to the terms of use. We will be in contact with you after you submit a request.
 ## Standardised Evaluation protocol
 In order to create a Benchmark for clot detection, there must be a standard means to evaluate performance of clot detection algorithms. Algorithms may be developed and then evaluated using the CODEC-IV dataset, which has been divided into training and testing groups, using the protocol supplied here.
 ### evaluate_seg.py
